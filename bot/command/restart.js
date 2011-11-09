@@ -9,8 +9,8 @@ exports.command=
 	],
 	func: function(params)
 	{
-		this.sendMessage('Restarting...');
-		process.send({'restart': true});
+		this.sendPM('Restarting...');
+		setTimeout(function(){ process.send({'restart': true}); }, 1000);
 		return true;
 	}
 }

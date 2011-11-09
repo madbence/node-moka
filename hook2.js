@@ -1,5 +1,7 @@
 var _=require('../npm/node_modules/underscore');
 
+console.log('Hook started!');
+
 var handle=exports.handle=function(msg)
 {
 	var h=new Hook(msg);
@@ -131,6 +133,7 @@ Hook.prototype.runCommand=function()
 				paramString.match(
 					typeof this.commands[i]['reg'] !== 'undefined' ?
 						this.commands[i]['reg'] : / .*/));
+			this.log('['+(new Date().getHours())+':'+(new Date().getMinutes())+'] '+this.sender+':'+this.commands[i]['name']);
 			if(!succ)
 			{
 				this.log('ERROR!');
@@ -231,13 +234,11 @@ Hook.prototype.parseData=function(d)
 }
 Hook.prototype.init=function(socket, log)
 {
-	console.log('INIT');
-	if(socket==null||log==null)
-	{
-		return;
-	}
+	//console.log('INIT');
 	Hook.prototype.log=log;
+	//wtf?!
 	Hook.prototype.init=function(){};
+	Hook.init=function(){};
 }
 
 Hook.prototype.sendMessage=function(options)
@@ -248,6 +249,13 @@ Hook.prototype.sendMessage=function(options)
 	}
 	this.writeMessage(this.composeMessage(options));
 }
+
+Hook.prototype.sendPM=function(message,recipient)
+{
+	var options={'message': message, 'recipient': recipient||this.sender};
+	this.sendMessage(options);
+}
+
 Hook.prototype.commands=
 [
 	require(__dirname+'/bot/command/calc.js').command,
