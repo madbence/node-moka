@@ -1,113 +1,287 @@
-var warn=1;
-hook=function(sock,data)
+var _=require('../npm/node_modules/underscore');
+
+console.log('Hook started!');
+
+var handle=exports.handle=function(msg)
 {
+	var h=new Hook(msg);
+	return h.getResponse();
+}
+
+process.on('message', function(msg)
+{
+	var response=handle(msg.message);
+	process.send({'message':response});
+});
+
+var Hook=function(data)
+{
+	this.init(null,console.log);
 	try
 	{
-		var response=data.toString().match(/:(.*?) PRIVMSG (.*?) :(.*?)\r\n/);
-		if(response != null)
+		if(this.parseData(data) === false)
 		{
-			var message=response[3].
-				replace(/\x02/g, '').
-				replace(/\x1F/g, '').
-				replace(/\x1D/g, '').
-				replace(/\x16/g, '').
-				replace(/\x03\d,\d/g, '').
-				replace(/\x03\d/g, '').
-				replace(/\x03/g, '');
-			var user=response[1].match(/(.*?)!/)[1];
-			var to=response[2][0]=='#'?response[2]:user
-			var date=new Date();
-			if(user==null)
-				return;
-			if(user=='_VV')
-			{
-				if(date.getHours() > 1 || (date.getHours() == 1 && date.getMinutes()>8))
-				{
-					if(date.getHours() < 8 || (date.getHours() == 8 && date.getMinutes()<8))
-					{
-						writeMsg(sock,to,user,'valts nicket, cicafold van! Ez a'+((warn==1)?'z':'')+' '+warn+++'. figyelmeztetes.');
-						return;
-					}
-				}
-			}
-			if(message.search(/lennon_mokazik/) != -1)
-			{
-				sock.write(composeMsg(to, user, 'riszponz!'));
-				console.log('me->'+user+'@'+to);
-			}
-			else if(message.search(/^l.calc (.*?)/) != -1)
-			{
-				var expr=message.match(/l.calc (.*?)$/)[1];
-				if(expr.search(/(for|while|do|function)/) != -1)
-				{
-					sock.write(composeMsg(to, user, 'Gonosz vagy! :( ('+expr.match(/(for|while|do|function)/)[1]+'-t hasznaltal)' ));
-					return;
-				}
-				var contx=vm.createContext({res:null});
-				var measureStart=new Date().getTime();
-				try
-				{
-					vm.runInContext('this.res='+expr+'', contx);
-					sock.write(composeMsg(to, user, contx.res.toString()+' ('+(new Date().getTime()-measureStart)+'ms)'));
-					console.log('calc('+expr+')->'+user);
-				}
-				catch(e)
-				{
-					sock.write(composeMsg(to, user, 'Syntax error :( ['+e.toString()+']'));
-					console.log('calc('+expr+')->'+user+' (failed)');
-					console.error(e);
-				}
-			}
-			else if(message.search(/^l.(print|echo) (.*?)$/) != -1)
-			{
-				var msg=message.match(/^l.(print|echo) (.*?)$/)[2];
-				sock.write(composeMsg(to, user, msg));
-				console.log('print('+msg+')->'+user);
-			}
-			else if(message.search(/^l.cica/) != -1)
-			{
-				var target=new Date();
-				target.setHours(1);
-				target.setMinutes(8);
-				target.setSeconds(0);
-				if(new Date().getHours()>1||(new Date().getHours()==target.getHours()&&new Date().getMinutes()>target.getMinutes()))
-				{
-					target.setTime(target.getTime()+3600*24*1000);
-				}
-				var diff=(target-new Date().getTime())/1000
-				var targetString=
-					diff>3600?
-						(Math.floor(diff/3600)+' ora, '+(Math.floor(diff/60)%60)+' perc'):
-						(diff>60?
-							((Math.floor(diff/60)%60)+' perc, '+Math.floor(diff)+' masodperc!'):
-							(Math.floor(diff)+' masodperc!!!'));
-				var targetHint=(target.getHours()<10?'0'+target.getHours():target.getHours())+':'+(target.getMinutes()<10?'0'+target.getMinutes():target.getMinutes());
-				sock.write(composeMsg(to, user, 'Cicafoldig ('+targetHint+') meg '+targetString));
-			}
-			else if(message.search(/^l.uptime/) != -1)
-			{
-				var ut=process.uptime();
-				utString=
-					Math.floor(ut/3600/24)+':'+
-					(((ut/3600)%3600)<10?'0':'')+Math.floor((ut/3600)%3600)+':'+
-					(((ut/60)%60)<10?'0':'')+Math.floor((ut/60)%60)+':'+
-					((ut%60)<10?'0':'')+Math.floor(ut%60);
-				writeMsg(sock,to,user,'uptime: '+utString);
-			}
+			//not a message, return
+			return;
 		}
+		if(this.isCommand() === false)
+		{
+			//definitely not a command, maybe something else?
+			
+			return;
+		}
+		if(this.runPreFilter() === false)
+		{
+			//if rule found, return
+			return;
+		}
+		if(this.commandExists() === false)
+		{
+			//no command found, respond
+			this.respondCommandNotFound();
+			return;
+		}
+		this.runCommand();
 	}
 	catch(e)
 	{
-		console.error('error: ', e);
+		console.dir(e);
+		//console.log(e.lineNumber);
+	}
+}
+
+//Hook.prototype.constructor=new Hook();
+Hook.prototype.config=
+{
+	name: 'lennon_mokazik',
+	prefix: 'l\\.',
+	allowedUsers:[/.*/],
+	allowedChannels:['#info'],
+	allowQuery:true,
+	shortManual:false,
+	responses:
+	{
+		commandNotFound:
+		[
+			'Bocsi, nincs ilyen parancs',
+			'Hiaba probalom kitalalni, nem tudom mit akarsz...',
+			'404 Not Found',
+			'Trukkos, de nincs ilyen :(',
+			'Meg nincs ilyen kommand, de majd lesz!',
+			'Nem ertem mit akarsz, probald meg ujbol. (de ne ugyanezt :D)',
+			'Hasznald a helpet! (ha mar meg nincs implementalva, akkor bocs :D)'
+		],
+		permissionDenied:
+		[
+			'Ne abuzalj! Ugyse csinalom neked!',
+			'Most epp nincs jogod ilyet csinalni.',
+		],
+	},
+	BBCodes:
+	[
+		[/\[b\](.*?)\[\/b\]/, '\x02$1\x02'],
+		[/\[u\](.*?)\[\/u\]/, '\x1F$1\x1F'],
+		[/\[i\](.*?)\[\/i\]/, '\x1D$1\x1D'],
+		[/\[r\](.*?)\[\/r\]/, '\x16$1\x16'],
+		[/\[c(\d,\d)\](.*?)\[\/c\]/, '\x03$1$2\x16'],
+		[/\[c(\d)\](.*?)\[\/c\]/, '\x03$1$2\x16'],
+	],
+	messageFormat: /:(.*?) PRIVMSG (.*?) :(.*?)\r\n/,
+	permissions:
+	{
+		'lennon': ['*'],
 	}
 };
 
-var composeMsg=function(to, usr, msg)
+Hook.prototype.isCommand=function()
 {
-	return 'PRIVMSG '+to+' :'+usr+': '+msg+'\r\n';
+	return this.message.search(new RegExp('^'+this.config.prefix)) !== -1;
 }
 
-var writeMsg=function(s,t,u,m)
+Hook.prototype.runPreFilter=function()
 {
-	s.write(composeMsg(t,u,m));
+	return true;
 }
+Hook.prototype.commandExists=function()
+{
+	for(var i=0;i<this.commands.length;i++)
+	{
+		if(this.cleanMessage.search(new RegExp('^'+this.config.prefix+this.commands[i]['name'])) != -1)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+Hook.prototype.runCommand=function()
+{
+	for(var i=0;i<this.commands.length;i++)
+	{
+		if(this.cleanMessage.search(new RegExp('^'+this.config.prefix+this.commands[i]['name'])) != -1)
+		{
+			if(typeof this.commands[i]['permission'] != 'undefined')
+			{
+				if(!this.hasPermission(this.commands[i]['permission']))
+				{
+					return;
+				}
+			}
+			var paramString=this.message.match(new RegExp('^'+this.config.prefix+this.commands[i]['name']+'(.*)'));
+			if(paramString!=null)
+				paramString=paramString[1];
+			var succ=this.commands[i].func.call(this,
+				paramString.match(
+					typeof this.commands[i]['reg'] !== 'undefined' ?
+						this.commands[i]['reg'] : / .*/));
+			this.log('['+(new Date().getHours())+':'+(new Date().getMinutes())+'] '+this.sender+':'+this.commands[i]['name']);
+			if(!succ)
+			{
+				this.log('ERROR!');
+			}
+			return;
+		}
+	}
+}
+Hook.prototype.hasPermission=function(perm)
+{
+	if(!this.config['permissions'][this.sender])
+	{
+		return false;
+	}
+	return _.find(this.config['permissions'][this.sender], function(p)
+	{
+		return p==perm||p=='*';
+	});
+}
+
+Hook.prototype.respondCommandNotFound=function()
+{
+	//this.sendMessage({'message': _.shuffle(this.config.responses.commandNotFound)[0]});
+}
+
+Hook.prototype.writeMessage=function(str)
+{
+	//this.socket.write(str);
+	this.response=str;
+}
+
+Hook.prototype.getResponse=function()
+{
+	return typeof this.response != 'undefined' ? this.response : null;
+}
+
+Hook.prototype.composeMessage=function(options)
+{
+	if(typeof options.recipient == 'undefined')
+	{
+		options.recipient=this.channel;
+	}
+	if(typeof options.sender == 'undefined')
+	{
+		options.sender=this.sender;
+	}
+	if(typeof options.message == 'undefined')
+	{
+		throw new Exception('Meg kell adni uzenetet!');
+	}
+	return 'PRIVMSG '+options.recipient+' :'+
+		(typeof options.sender === 'undefined'?
+			'':
+			options.sender+': ')+
+		options.message+'\r\n';
+}
+
+Hook.prototype.formatMessage=function(str)
+{
+	for(var i=0;i<this.config.BBCodes.length;i++)
+	{
+		str=str.replace(this.config.BBCodes[i][0], this.config.BBCodes[i][1]);
+	}
+	return str;
+}
+
+Hook.prototype.clearInput=function(str)
+{
+	return str.
+		replace(/\x02/g, '').
+		replace(/\x1F/g, '').
+		replace(/\x1D/g, '').
+		replace(/\x16/g, '').
+		replace(/\x03\d,\d/g, '').
+		replace(/\x03\d/g, '').
+		replace(/\x03/g, '');
+}
+
+Hook.prototype.parseData=function(d)
+{
+	this.data=d.toString().match(this.config.messageFormat);
+	if(this.data!=null)
+	{
+		this.message=this.data[3];
+		this.message=this.message.replace(/ *$/, '');
+		this.cleanMessage=this.clearInput(this.message);
+		this.sender=this.data[1].match(/(.*?)!/)[1];
+		this.channel=this.data[2][0]=='#'?this.data[2]:this.sender;
+		if(this.sender == null)
+		{
+			return false;
+		}
+	}
+	else
+	{
+		return false;
+	}
+}
+Hook.prototype.init=function(socket, log)
+{
+	//console.log('INIT');
+	Hook.prototype.log=log;
+	//wtf?!
+	Hook.prototype.init=function(){};
+	Hook.init=function(){};
+}
+
+Hook.prototype.sendMessage=function(options)
+{
+	if(typeof options === 'string')
+	{
+		options={'message':options};
+	}
+	this.writeMessage(this.composeMessage(options));
+}
+
+Hook.prototype.sendPM=function(message,recipient)
+{
+	var options={'message': message, 'recipient': recipient||this.sender};
+	this.sendMessage(options);
+}
+
+Hook.prototype.commands=
+[
+	require(__dirname+'/bot/command/calc.js').command,
+	require(__dirname+'/bot/command/help.js').command,
+	require(__dirname+'/bot/command/cica.js').command,
+	require(__dirname+'/bot/command/uptime.js').command,
+	require(__dirname+'/bot/command/about.js').command,
+	require(__dirname+'/bot/command/restart.js').command,
+];
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	

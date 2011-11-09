@@ -8,7 +8,7 @@ var server = net.createServer(function(c) {
 	{
 		if(instance != null)
 			instance.kill();
-		instance=child.fork(__dirname+'/hook2.js');
+		instance=child.fork(__dirname+'/hook.js');
 		instance.on('message', function(m)
 		{
 			if(m.message != null)
@@ -24,7 +24,7 @@ var server = net.createServer(function(c) {
 	}
 	var instance;
 	restart(null,null);
-	var watch=fs.watch(__dirname+'/hook2.js', restart);
+	var watch=fs.watch(__dirname+'/hook.js', restart);
 	var f=net.connect(6669, 'atw.irc.hu');
 	f.on('data', function(data)
 	{
