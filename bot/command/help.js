@@ -23,8 +23,8 @@ exports.command=
 			{
 				if(this.commands[i]['name'] == params[0].substr(1))
 				{
-					this.sendMessage({'message':
-						'Hasznalat: '+this.commands[i]['man'].join(', ').replace('%c', this.config.prefix+this.commands[i]['name'])});
+					this.sendMessage(
+						'Hasznalat: '+this.commands[i]['man'].join(', ').replace('%c', this.config.prefix+this.commands[i]['name']));
 					return true;
 				}
 			}

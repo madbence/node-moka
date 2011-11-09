@@ -1,6 +1,20 @@
-Hook=function(socket, data)
+var _=require('../npm/node_modules/underscore');
+
+var handle=exports.handle=function(msg)
 {
-	this.init(socket,console.log);
+	var h=new Hook(msg);
+	return h.getResponse();
+}
+
+process.on('message', function(msg)
+{
+	var response=handle(msg.message);
+	process.send({'message':response});
+});
+
+var Hook=function(data)
+{
+	this.init(null,console.log);
 	try
 	{
 		if(this.parseData(data) === false)
@@ -38,7 +52,7 @@ Hook=function(socket, data)
 Hook.prototype.config=
 {
 	name: 'lennon_mokazik',
-	prefix: 'l.',
+	prefix: 'l\\.',
 	allowedUsers:[/.*/],
 	allowedChannels:['#info'],
 	allowQuery:true,
@@ -71,6 +85,10 @@ Hook.prototype.config=
 		[/\[c(\d)\](.*?)\[\/c\]/, '\x03$1$2\x16'],
 	],
 	messageFormat: /:(.*?) PRIVMSG (.*?) :(.*?)\r\n/,
+	permissions:
+	{
+		'lennon': ['*'],
+	}
 };
 
 Hook.prototype.isCommand=function()
@@ -99,6 +117,13 @@ Hook.prototype.runCommand=function()
 	{
 		if(this.cleanMessage.search(new RegExp('^'+this.config.prefix+this.commands[i]['name'])) != -1)
 		{
+			if(typeof this.commands[i]['permission'] != 'undefined')
+			{
+				if(!this.hasPermission(this.commands[i]['permission']))
+				{
+					return;
+				}
+			}
 			var paramString=this.message.match(new RegExp('^'+this.config.prefix+this.commands[i]['name']+'(.*)'));
 			if(paramString!=null)
 				paramString=paramString[1];
@@ -114,15 +139,32 @@ Hook.prototype.runCommand=function()
 		}
 	}
 }
+Hook.prototype.hasPermission=function(perm)
+{
+	if(!this.config['permissions'][this.sender])
+	{
+		return false;
+	}
+	return _.find(this.config['permissions'][this.sender], function(p)
+	{
+		return p==perm||p=='*';
+	});
+}
 
 Hook.prototype.respondCommandNotFound=function()
 {
-	this.sendMessage({'message': _.shuffle(this.config.responses.commandNotFound)[0]});
+	//this.sendMessage({'message': _.shuffle(this.config.responses.commandNotFound)[0]});
 }
 
 Hook.prototype.writeMessage=function(str)
 {
-	this.socket.write(str);
+	//this.socket.write(str);
+	this.response=str;
+}
+
+Hook.prototype.getResponse=function()
+{
+	return typeof this.response != 'undefined' ? this.response : null;
 }
 
 Hook.prototype.composeMessage=function(options)
@@ -189,16 +231,13 @@ Hook.prototype.parseData=function(d)
 }
 Hook.prototype.init=function(socket, log)
 {
-	//console.log('Hook initialised!');
-	//console.log(socket);
+	console.log('INIT');
 	if(socket==null||log==null)
 	{
 		return;
 	}
-	this.socket=socket;
-	this.log=log;
-	//This is magic!
-	//Hook.prototype.init=function(ss,l){console.log(ss);};
+	Hook.prototype.log=log;
+	Hook.prototype.init=function(){};
 }
 
 Hook.prototype.sendMessage=function(options)
@@ -211,139 +250,12 @@ Hook.prototype.sendMessage=function(options)
 }
 Hook.prototype.commands=
 [
-	{
-		name: 'calc',
-		man: 
-		[
-			'"%c [-t] [-v] \x1Dexpression\x1D"',
-			'-t opcioval meri a futasidot',
-			'-v bovebb info a hibarol',
-			'\x1DMath\x1D objektum hasznalhato a \x1DMath\x1D elotag nelkul',
-		],
-		reg: / (-t )?(-v )?(.*)/,
-		func: function(params)
-		{
-			var context=vm.createContext({});
-			var start=new Date();
-			var measure=typeof params[1] != 'undefined';
-			var verbose=typeof params[2] != 'undefined';
-			var expression=params[3];
-			try
-			{
-				if(expression.search(/for|while|do|function/)!=-1)
-				{
-					throw new Error('Legyszi meg ne hasznalj mindenfele JS okossagot :)');
-				}
-				expression=expression.replace(/(sin|cos|asin|acos|tan|atan|atan2|abs|ceil|exp|floor|round|log|max|min|pow|random|sqrt|PI|E|LN2|LN10|LOG10E|LOG2E|SQRT1_2|SQRT_2)/gi,
-					'Math.$1').replace('Math.Math.', 'Math.');
-				vm.runInContext('this.res='+expression, context);
-				var message=context.res+(measure?' ('+(new Date().getTime()-start)+'ms)':'');
-				this.sendMessage({'message':message});
-				return true;
-			}
-			catch(e)
-			{
-				console.log(e);
-				console.log(params);
-				var message=verbose?e.message:'Hiba :(';
-				this.sendMessage({'message':message});
-				return false
-			}
-		}
-	},
-	{
-		name: 'help',
-		man: 
-		[
-			'"%c command"'
-		],
-		func: function(params)
-		{
-			if(params==null)
-			{
-				var message='Elerheto parancsok: ';
-				for(var i=0;i<this.commands.length;i++)
-				{
-					message+=this.commands[i]['name']+' ';
-				}
-				this.sendMessage({'message':message});
-				return true;
-			}
-			else
-			{
-				for(var i=0;i<this.commands.length;i++)
-				{
-					if(this.commands[i]['name'] == params[0].substr(1))
-					{
-						this.sendMessage({'message':
-							'Hasznalat: '+this.commands[i]['man'].join(', ').replace('%c', this.config.prefix+this.commands[i]['name'])});
-						return true;
-					}
-				}
-				this.respondCommandNotFound();
-				return true;
-			}
-		}
-	},
-	{
-		name: 'cica',
-		man:
-		[
-			'"%c", megmondja mennyi ido mulva valtozik at _VauViktor',
-		],
-		func: function(params)
-		{
-			var target=new Date();
-			target.setHours(1);
-			target.setMinutes(8);
-			target.setSeconds(0);
-			if(new Date().getHours()>1||(new Date().getHours()==target.getHours()&&new Date().getMinutes()>target.getMinutes()))
-			{
-				target.setTime(target.getTime()+3600*24*1000);
-			}
-			var diff=(target-new Date().getTime())/1000
-			var targetString=
-				diff>3600?
-					(Math.floor(diff/3600)+' ora, '+(Math.floor(diff/60)%60)+' perc'):
-					(diff>60?
-						((Math.floor(diff/60)%60)+' perc, '+Math.floor(diff)+' masodperc!'):
-						(Math.floor(diff)+' masodperc!!!'));
-			var targetHint=(target.getHours()<10?'0'+target.getHours():target.getHours())+':'+(target.getMinutes()<10?'0'+target.getMinutes():target.getMinutes());
-			this.sendMessage({'message':'Cicafoldig ('+targetHint+') meg '+targetString});
-			return true;
-		}
-	},
-	{
-		name: 'uptime',
-		man:
-		[
-			'"%c", megmondja miota fut a bot',
-		],
-		func: function(params)
-		{
-			var ut=process.uptime();
-			utString=
-				Math.floor(ut/3600/24)+':'+
-				(((ut/3600)%3600)<10?'0':'')+Math.floor((ut/3600)%3600)+':'+
-				(((ut/60)%60)<10?'0':'')+Math.floor((ut/60)%60)+':'+
-				((ut%60)<10?'0':'')+Math.floor(ut%60);
-			this.sendMessage({'message':'uptime: '+utString});
-			return true;
-		}
-	},
-	{
-		name: 'about',
-		man:
-		[
-			'"%c"',
-			'szerintem nyilvanvalo mit csinal'
-		],
-		func: function(params)
-		{
-			this.sendMessage('Node.js bot, amit \x02lennon\x02 fabrikalt, fabrikalgat most is (vagy epp nem)');
-			return true;
-		}
-	}
+	require(__dirname+'/bot/command/calc.js').command,
+	require(__dirname+'/bot/command/help.js').command,
+	require(__dirname+'/bot/command/cica.js').command,
+	require(__dirname+'/bot/command/uptime.js').command,
+	require(__dirname+'/bot/command/about.js').command,
+	require(__dirname+'/bot/command/restart.js').command,
 ];
 	
 	

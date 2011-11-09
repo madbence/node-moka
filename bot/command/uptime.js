@@ -13,7 +13,7 @@ exports.command=
 			(((ut/3600)%3600)<10?'0':'')+Math.floor((ut/3600)%3600)+':'+
 			(((ut/60)%60)<10?'0':'')+Math.floor((ut/60)%60)+':'+
 			((ut%60)<10?'0':'')+Math.floor(ut%60);
-		this.sendMessage({'message':'uptime: '+utString});
+		this.sendMessage('uptime: '+utString);
 		return true;
 	}
 }

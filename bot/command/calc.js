@@ -26,7 +26,7 @@ exports.command=
 				'Math.$1').replace(/Math\.Math\./g, 'Math.');
 			vm.runInContext('this.res='+expression, context);
 			var message=context.res+(measure?' ('+(new Date().getTime()-start)+'ms)':'');
-			this.sendMessage({'message':message});
+			this.sendMessage(message);
 			return true;
 		}
 		catch(e)
