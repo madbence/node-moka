@@ -20,8 +20,8 @@ exports.command=
 			diff>3600?
 				(Math.floor(diff/3600)+' ora, '+(Math.floor(diff/60)%60)+' perc'):
 				(diff>60?
-					((Math.floor(diff/60)%60)+' perc, '+Math.floor(diff)+' masodperc!'):
-					(Math.floor(diff)+' masodperc!!!'));
+					((Math.floor(diff/60)%60)+' perc, '+Math.floor(diff)%60+' masodperc!'):
+					((Math.floor(diff))+' masodperc!!!'));
 		var targetHint=(target.getHours()<10?'0'+target.getHours():target.getHours())+':'+(target.getMinutes()<10?'0'+target.getMinutes():target.getMinutes());
 		this.sendMessage('Cicafoldig ('+targetHint+') meg '+targetString);
 		return true;

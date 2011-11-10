@@ -1,6 +1,7 @@
 exports.command=
 {
 	name: 'help',
+	aliases: ['man', 'h'],
 	man: 
 	[
 		'"%c command"'
