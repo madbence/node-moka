@@ -1,3 +1,4 @@
+var vm=require('vm');
 exports.command=
 {
 	name: 'calc',

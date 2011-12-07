@@ -2,286 +2,198 @@ var _=require('../npm/node_modules/underscore');
 
 console.log('Hook started!');
 
-var handle=exports.handle=function(msg)
+var Hook=function(m)
 {
-	var h=new Hook(msg);
-	return h.getResponse();
+	this._handle(m);
 }
 
-process.on('message', function(msg)
+var queue=
 {
-	var response=handle(msg.message);
-	process.send({'message':response});
-});
-
-var Hook=function(data)
-{
-	this.init(null,console.log);
-	try
+	queue: [],
+	queueNames: {},
+	put: function(cmd, name)
 	{
-		if(this.parseData(data) === false)
+		name=name||'global';
+		if(typeof this.queueNames[name] == 'undefined')
 		{
-			//not a message, return
-			return;
+			this.queueNames[name]=this.queue.length;
+			this.queue[this.queueNames[name]]=[];
 		}
-		if(this.isCommand() === false)
-		{
-			//definitely not a command, maybe something else?
-			
-			return;
-		}
-		if(this.runPreFilter() === false)
-		{
-			//if rule found, return
-			return;
-		}
-		if(this.commandExists() === false)
-		{
-			//no command found, respond
-			this.respondCommandNotFound();
-			return;
-		}
-		this.runCommand();
-	}
-	catch(e)
-	{
-		console.dir(e);
-		//console.log(e.lineNumber);
-	}
-}
-
-//Hook.prototype.constructor=new Hook();
-Hook.prototype.config=
-{
-	name: 'lennon_mokazik',
-	prefix: 'l\\.',
-	allowedUsers:[/.*/],
-	allowedChannels:['#info'],
-	allowQuery:true,
-	shortManual:false,
-	responses:
-	{
-		commandNotFound:
-		[
-			'Bocsi, nincs ilyen parancs',
-			'Hiaba probalom kitalalni, nem tudom mit akarsz...',
-			'404 Not Found',
-			'Trukkos, de nincs ilyen :(',
-			'Meg nincs ilyen kommand, de majd lesz!',
-			'Nem ertem mit akarsz, probald meg ujbol. (de ne ugyanezt :D)',
-			'Hasznald a helpet! (ha mar meg nincs implementalva, akkor bocs :D)'
-		],
-		permissionDenied:
-		[
-			'Ne abuzalj! Ugyse csinalom neked!',
-			'Most epp nincs jogod ilyet csinalni.',
-		],
+		this.queue[this.queueNames[name]].push(cmd);
 	},
-	BBCodes:
-	[
-		[/\[b\](.*?)\[\/b\]/, '\x02$1\x02'],
-		[/\[u\](.*?)\[\/u\]/, '\x1F$1\x1F'],
-		[/\[i\](.*?)\[\/i\]/, '\x1D$1\x1D'],
-		[/\[r\](.*?)\[\/r\]/, '\x16$1\x16'],
-		[/\[c(\d,\d)\](.*?)\[\/c\]/, '\x03$1$2\x16'],
-		[/\[c(\d)\](.*?)\[\/c\]/, '\x03$1$2\x16'],
-	],
-	messageFormat: /:(.*?) PRIVMSG (.*?) :(.*?)\r\n/,
-	permissions:
+	tick: function()
 	{
-		'lennon': ['*'],
+		for(var i=0;i<this.queue.length;i++)
+		{
+			if(this.queue[i].length)
+			{
+				process.send({'message': this.queue[i].shift()});
+			}
+		};
 	}
 };
 
-Hook.prototype.isCommand=function()
+setInterval(function(){queue.tick()}, 2000);
+
+Hook.prototype._config=require('./config.js').config;
+
+
+Hook.prototype.log=function()
 {
-	return this.message.search(new RegExp('^'+this.config.prefix)) !== -1;
+	for(var i=0;i<arguments.length;i++)
+	{
+		//arguments[i]=arguments[i].replace('\r\n', '');
+	}
+	//this.logger.history.push(arguments);
+	console.log(arguments);
+}
+Hook.prototype._handle=function(message)
+{
+	try
+	{
+		var isMessage=message.match(/^:(.*?) PRIVMSG (.*?) :(.*)\r\n/);
+		if(isMessage)
+		{
+			return this.handleMessage(isMessage[1], isMessage[2], isMessage[3]);
+		}
+		var isPing=message.match(/^PING/);
+		var isPong=message.match(/^PONG/);
+		if(isPing || isPong)
+		{
+			if(isPing)
+				this.log('PING');
+			else
+				this.log('PONG');
+		}
+	}
+	catch(e)
+	{
+		this.log(e);
+	}
+}
+Hook.prototype.handleMessage=function(sender, channel, message)
+{
+	this._user=sender.match(/^(.*?)!/)[1];
+	this._channel=channel;
+	this._rawMessage=message;
+	this._cleanMessage=message; //this._sanitize(message);
+	// if(message.match(/lennon/))
+	// {
+		// this._executeCmd(this.reply('szia'));
+		// this._executeCmd(this.reply('szia'));
+		// this._executeCmd(this.reply('szia'));
+	// }
+	if(this.getMessage().match(this._config['commandPrefix']))
+	{
+		this.handleCommand(message.split(' '));
+	}
 }
 
-Hook.prototype.runPreFilter=function()
+Hook.prototype.handleCommand=function(args)
 {
-	return true;
+	this._command=args[0].slice(2);
+	if(!this.commandExists(this._command))
+	{
+		//
+		return;
+	}
+	if(this.hasPermission(this._command, this._user))
+	{
+		this.runCommand(this._command, args);
+	}
 }
-Hook.prototype.commandExists=function()
+
+Hook.prototype._executeCmd=function(s,name)
+{
+	queue.put(s,name)
+	//process.send({'message': s});
+}
+
+/***********************************************
+Command related stuff
+***********************************************/
+Hook.prototype.commandExists=function(command)
 {
 	for(var i=0;i<this.commands.length;i++)
 	{
-		if(this.cleanMessage.search(new RegExp('^'+this.config.prefix+this.commands[i]['name'])) != -1)
+		if(this.commands[i]['name']==command)
 		{
 			return true;
 		}
 	}
 	return false;
 }
-Hook.prototype.runCommand=function()
+Hook.prototype.hasPermission=function(command, user)
+{
+	return true;
+}
+Hook.prototype.runCommand=function(command, args)
 {
 	for(var i=0;i<this.commands.length;i++)
 	{
-		if(this.cleanMessage.search(new RegExp('^'+this.config.prefix+this.commands[i]['name'])) != -1)
+		if(this.commands[i]['name']==command)
 		{
-			if(typeof this.commands[i]['permission'] != 'undefined')
-			{
-				if(!this.hasPermission(this.commands[i]['permission']))
-				{
-					return;
-				}
-			}
-			var paramString=this.message.match(new RegExp('^'+this.config.prefix+this.commands[i]['name']+'(.*)'));
-			if(paramString!=null)
-				paramString=paramString[1];
-			var succ=this.commands[i].func.call(this,
-				paramString.match(
-					typeof this.commands[i]['reg'] !== 'undefined' ?
-						this.commands[i]['reg'] : / .*/));
-			this.log('['+(new Date().getHours())+':'+(new Date().getMinutes())+'] '+this.sender+':'+this.commands[i]['name']);
-			if(!succ)
-			{
-				this.log('ERROR!');
-			}
+			this.commands[i].call(this, args, this.commands[i]);
 			return;
 		}
 	}
 }
-Hook.prototype.hasPermission=function(perm)
+/***********************************************
+Primitive IRC methods
+(message constructing, etc.)
+***********************************************/
+Hook.prototype._cmd=function(cmd, params)
 {
-	if(!this.config['permissions'][this.sender])
-	{
-		return false;
-	}
-	return _.find(this.config['permissions'][this.sender], function(p)
-	{
-		return p==perm||p=='*';
-	});
+	return cmd+' '+params+'\n';
+}
+Hook.prototype._message=function(to, message, sendName)
+{
+	return this._cmd('PRIVMSG', to+' :'+(sendName?(sendName+': '):'')+message);
+}
+Hook.prototype._reply=function(msg, sendName)
+{
+	return this._message(this.getReplyAddress(), msg, sendName);
+}
+Hook.prototype.reply=function(msg)
+{
+	return this._reply(msg, this.isQuery()?false:this.getUser());
+}
+/***********************************************
+Message related methods
+***********************************************/
+Hook.prototype.getReplyAddress=function()
+{
+	return this.isQuery?this.getUser():this.getChannel();
+}
+Hook.prototype.getChannel=function()
+{
+	return this._channel;
+}
+Hook.prototype.isQuery=function()
+{
+	return this._channel[0]!='#';
+}
+Hook.prototype.isChannel=function()
+{
+	return !this.isQuery();
+}
+Hook.prototype.getUser=function()
+{
+	return this._user;
+}
+Hook.prototype.getMessage=function(raw)
+{
+	return raw?this._rawMessage:this._cleanMessage;
 }
 
-Hook.prototype.respondCommandNotFound=function()
+Hook.prototype.addMessageListener=function(listener)
 {
-	//this.sendMessage({'message': _.shuffle(this.config.responses.commandNotFound)[0]});
+	this._messageListeners.push(listener);
 }
 
-Hook.prototype.writeMessage=function(str)
-{
-	//this.socket.write(str);
-	this.response=str;
-}
 
-Hook.prototype.getResponse=function()
+process.on('message', function(msg)
 {
-	return typeof this.response != 'undefined' ? this.response : null;
-}
-
-Hook.prototype.composeMessage=function(options)
-{
-	if(typeof options.recipient == 'undefined')
-	{
-		options.recipient=this.channel;
-	}
-	if(typeof options.sender == 'undefined')
-	{
-		options.sender=this.sender;
-	}
-	if(typeof options.message == 'undefined')
-	{
-		throw new Exception('Meg kell adni uzenetet!');
-	}
-	return 'PRIVMSG '+options.recipient+' :'+
-		(typeof options.sender === 'undefined'?
-			'':
-			options.sender+': ')+
-		options.message+'\r\n';
-}
-
-Hook.prototype.formatMessage=function(str)
-{
-	for(var i=0;i<this.config.BBCodes.length;i++)
-	{
-		str=str.replace(this.config.BBCodes[i][0], this.config.BBCodes[i][1]);
-	}
-	return str;
-}
-
-Hook.prototype.clearInput=function(str)
-{
-	return str.
-		replace(/\x02/g, '').
-		replace(/\x1F/g, '').
-		replace(/\x1D/g, '').
-		replace(/\x16/g, '').
-		replace(/\x03\d,\d/g, '').
-		replace(/\x03\d/g, '').
-		replace(/\x03/g, '');
-}
-
-Hook.prototype.parseData=function(d)
-{
-	this.data=d.toString().match(this.config.messageFormat);
-	if(this.data!=null)
-	{
-		this.message=this.data[3];
-		this.message=this.message.replace(/ *$/, '');
-		this.cleanMessage=this.clearInput(this.message);
-		this.sender=this.data[1].match(/(.*?)!/)[1];
-		this.channel=this.data[2][0]=='#'?this.data[2]:this.sender;
-		if(this.sender == null)
-		{
-			return false;
-		}
-	}
-	else
-	{
-		return false;
-	}
-}
-Hook.prototype.init=function(socket, log)
-{
-	//console.log('INIT');
-	Hook.prototype.log=log;
-	//wtf?!
-	Hook.prototype.init=function(){};
-	Hook.init=function(){};
-}
-
-Hook.prototype.sendMessage=function(options)
-{
-	if(typeof options === 'string')
-	{
-		options={'message':options};
-	}
-	this.writeMessage(this.composeMessage(options));
-}
-
-Hook.prototype.sendPM=function(message,recipient)
-{
-	var options={'message': message, 'recipient': recipient||this.sender};
-	this.sendMessage(options);
-}
-
-Hook.prototype.commands=
-[
-	require(__dirname+'/bot/command/calc.js').command,
-	require(__dirname+'/bot/command/help.js').command,
-	require(__dirname+'/bot/command/cica.js').command,
-	require(__dirname+'/bot/command/uptime.js').command,
-	require(__dirname+'/bot/command/about.js').command,
-	require(__dirname+'/bot/command/restart.js').command,
-];
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
+	var response=new Hook(msg.message);
+	//process.send({'message':response});
+});

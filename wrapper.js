@@ -28,10 +28,12 @@ var server = net.createServer(function(c) {
 	f.on('data', function(data)
 	{
 		instance.send({'message':data.toString()});
+		//console.log(data.toString());
 		c.write(data);
 	});
 	c.on('data', function(data)
 	{
+		//console.log(data.toString());
 		f.write(data);
 	});
 });
