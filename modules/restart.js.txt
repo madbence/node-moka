@@ -1,0 +1,18 @@
+exports.commands=
+[
+	{
+		name: 'restart',
+		permission: 'restart',
+		man:
+		[
+			'"%c"',
+			'Restarts the bot'
+		],
+		func: function(params)
+		{
+			//this.sendPM('Restarting...');
+			//setTimeout(function(){ IRC.restart()}, 1000);
+			return true;
+		}
+	}
+]

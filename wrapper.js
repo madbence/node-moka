@@ -1,40 +1,63 @@
 var net = require('net');
-var child = require('child_process');
+var http = require('http');
 var fs = require('fs');
-
-	
-var server = net.createServer(function(c) {
-	var restart=function(err, fn)
+var instance;
+var f;
+var restart=function(err, fn)
 	{
-		if(instance != null)
-			instance.kill();
-		instance=child.fork(__dirname+'/hook.js');
-		instance.on('message', function(m)
+		console.log('Restarting...');
+		delete require.cache[__dirname+'\\hook.js'];
+		try
 		{
-			if(m.message != null)
-			{
-				f.write(m.message);
-			}
-			if(m.restart)
-			{
-				restart(null,null);
-			}
-		});
+			instance=require(__dirname+'/hook.js');
+			instance.IRC.send=function(m){/*console.log('cli:'+m);*/f.write(m);}
+		}
+		catch(e)
+		{
+			console.log(e);
+		}
 	}
-	var instance;
+
+	/*
+var server = net.createServer(function(c) {
 	restart(null,null);
 	var watch=fs.watch(__dirname+'/hook.js', restart);
-	var f=net.connect(6669, 'atw.irc.hu');
+	f=net.connect(6669, 'atw.irc.hu', function(succ)
+	{
+		//instance.connect();
+	});
 	f.on('data', function(data)
 	{
-		instance.send({'message':data.toString()});
-		//console.log(data.toString());
+		instance.send(data.toString());
+		console.log(data.toString());
 		c.write(data);
 	});
 	c.on('data', function(data)
 	{
-		//console.log(data.toString());
 		f.write(data);
+		console.log(data.toString());
 	});
 });
-server.listen(8124);
+server.listen(8124);*/
+
+
+restart(null,null);
+var watch=fs.watch(__dirname+'/hook.js', restart);
+f=net.connect(6669, 'atw.irc.hu', function(succ)
+{
+	instance.connect();
+});
+f.on('data', function(data)
+{
+	instance.send(data.toString());
+	console.log('srv:'+data.toString().replace(/\r\n$/, ''));
+});
+
+http.createServer(function (req, res) {
+  res.writeHead(200, {'Content-Type': 'text/plain; charset=utf8'});
+  for(var i=0;i<instance.log.messages.length;i++)
+	{
+		res.write(instance.log.messages[i]+'\n');
+	}
+	res.end();
+}).listen(1337);

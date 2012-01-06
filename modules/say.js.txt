@@ -1,0 +1,34 @@
+exports.commands=
+[
+	{
+		name: 'say',
+		reg: /(.*)/,
+		func: function(params)
+		{
+			console.log(params[1]);
+			console.log(trim(params[1]));
+			var args=trim(params[1]).split(' ');
+			console.log(args);
+			var to=this.sender;
+			for(var i=0;i<args.length;i++)
+			{
+				if(args[i] == '-t')
+				{
+					to=args[++i];
+				}
+				else
+				{
+					break;
+				}
+			}
+			var msg=args.splice(i).join(' ');
+			console.log(to);
+			console.log(msg);
+			return true;
+		}
+	}
+]
+	function trim(str)
+	{
+		return str.replace(/^ */, '').replace(/ *$/, '').replace(/ */, ' ');
+	}
