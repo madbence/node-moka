@@ -67,3 +67,8 @@ exports.trimHyphens=function(str)
 {
 	return str.replace(/-+/g, '-');
 }
+
+exports.escape=function(str)
+{
+	return str.replace(/[^a-z0-9_-]/gi, '-');
+}

@@ -42,7 +42,7 @@ server.listen(8124);*/
 
 
 restart(null,null);
-var watch=fs.watch(__dirname+'/hook.js', restart);
+var watch=fs.watch(__dirname, restart);
 f=net.connect(6669, 'atw.irc.hu', function(succ)
 {
 	instance.connect();

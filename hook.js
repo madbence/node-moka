@@ -96,6 +96,16 @@ Hook.prototype.addModule=function(m)
 			Hook.prototype.commands.push(m.commands[i]);
 		}
 	}
+	if(m['listeners'])
+	{
+		for(var i=0;i<m['listeners'].length;i++)
+		{
+			if(m['listeners'][i]['regexp'])
+			{
+				this.addRegexpListener(m['listeners'][i]['regexp'], m['listeners'][i]['func']);
+			}
+		}
+	}
 	if(typeof m.onInit == 'function')
 		m.onInit.call(this);
 }
