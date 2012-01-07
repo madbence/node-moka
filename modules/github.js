@@ -169,6 +169,39 @@ exports.commands=
 						that.reply(userName+' oket koveti ('+followingsList.length+'): '+followingsList.join(', '));
 					});
 				}
+				else
+				{
+					var userName=util.escape(params[2]);
+					if(!userName.length)
+					{
+						return;
+					}
+					githubAPI.getUser(userName, function(user)
+					{
+						try
+						{
+							if(user['message'] == 'Not Found')
+							{
+								that.reply('Nincs \''+userName+'\' juzer :c');
+							}
+							else
+							{
+								that.reply(template(templates['user'], 
+								{
+									'user': userName,
+									'repos': user['public_repos'],
+									'followers': user['followers'],
+									'following': user['following'],
+									'gists': user['public_gists']
+								}));
+							}
+						}
+						catch(e)
+						{
+							//that.reply(e);
+						}
+					});
+				}
 				/*
 				
 			switch(params[1])
