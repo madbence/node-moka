@@ -41,6 +41,44 @@ var githubAPI=
 				clb(JSON.parse(responseData));
 			});
 		});
+	},
+	getFollowers: function(name, clb)
+	{
+		https.get(
+		{
+			'host': 'api.github.com',
+			'path': '/users/'+name+'/followers'
+		}, function(res)
+		{
+			var responseData='';
+			res.on('data', function(data)
+			{
+				responseData+=data;
+			});
+			res.on('end', function()
+			{
+				clb(JSON.parse(responseData));
+			});
+		});
+	},
+	getFollowings: function(name, clb)
+	{
+		https.get(
+		{
+			'host': 'api.github.com',
+			'path': '/users/'+name+'/following'
+		}, function(res)
+		{
+			var responseData='';
+			res.on('data', function(data)
+			{
+				responseData+=data;
+			});
+			res.on('end', function()
+			{
+				clb(JSON.parse(responseData));
+			});
+		});
 	}
 }
 
@@ -108,10 +146,28 @@ exports.commands=
 				else if(params.length == 4 && params[2] == 'followers')
 				{
 					var userName=util.escape(params[3]);
+					githubAPI.getFollowers(userName, function(followers)
+					{
+						var followersList=[];
+						for(var i=0;i<followers.length;i++)
+						{
+							followersList.push(followers[i]['login']);
+						}
+						that.reply(userName+' kovetoi ('+followersList.length+'): '+followersList.join(', '));
+					});
 				}
-				else if(params.length == 4 && params[2] == 'following')
+				else if(params.length == 4 && params[2] == 'followings')
 				{
 					var userName=util.escape(params[3]);
+					githubAPI.getFollowings(userName, function(followings)
+					{
+						var followingsList=[];
+						for(var i=0;i<followings.length;i++)
+						{
+							followingsList.push(followings[i]['login']);
+						}
+						that.reply(userName+' oket koveti ('+followingsList.length+'): '+followingsList.join(', '));
+					});
 				}
 				/*
 				
@@ -170,7 +226,7 @@ exports.listeners=
 			{
 				if(user['message'] == 'Not Found')
 				{
-					that.reply('Nincs \''+userName+'\' juzer :c');
+					//that.reply('Nincs \''+userName+'\' juzer :c');
 				}
 				else
 				{
