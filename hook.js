@@ -61,7 +61,11 @@ var queue=
 				//process.send({'message': m});
 			}
 		};
-	}
+	},
+	clear: function(queue)
+	{
+		this.queue[this.queueNames[queue]]=[];
+	},
 };
 
 setInterval(function(){queue.tick()}, 2000);
@@ -194,6 +198,10 @@ Hook.prototype.handleMessage=function(sender, channel, message)
 	{
 		this.say('123456789'+String.fromCharCode(0x202e)+'123456789');
 	}
+	if(message.match(/^l.stfu$/))
+	{
+		this.clearQueue();
+	}
 	if(this.getMessage().match(this._config['commandPrefix']))
 	{
 		this.handleCommand(message.split(' '));
@@ -225,6 +233,10 @@ Hook.prototype.send=function(s)
 {
 	//console.log('queue['+this.getChannel()+'].put('+s+')');
 	this._executeCmd(s, this.getChannel());
+}
+Hook.prototype.clearQueue=function()
+{
+	queue.clear(this.getChannel());
 }
 
 /***********************************************

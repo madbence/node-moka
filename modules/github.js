@@ -28,7 +28,7 @@ var githubAPI=
 		https.get(
 		{
 			'host': 'api.github.com',
-			'path': '/users/'+name+'/repos'
+			'path': '/users/'+name+'/repos?per_page=100'
 		}, function(res)
 		{
 			var responseData='';
@@ -116,11 +116,11 @@ exports.commands=
 								var reposArray=[];
 								for(var i=0;i<repos.length;i++)
 								{
-									if(!reposArray[Math.floor(i/10)])
+									if(!reposArray[Math.floor(i/15)])
 									{
-										reposArray[Math.floor(i/10)]=[];
+										reposArray[Math.floor(i/15)]=[];
 									}
-									reposArray[Math.floor(i/10)][i%10]=template(templates['repos_'],
+									reposArray[Math.floor(i/15)][i%15]=template(templates['repos_'],
 									{
 										'name': repos[i]['name'],
 										'lang': repos[i]['language']?repos[i]['language']:'ismeretlen',
@@ -133,8 +133,12 @@ exports.commands=
 								that.reply(template(templates['repos'],
 								{
 									'user': userName,
-									'repos': reposArray[0].join(', ')
+									'repos': reposArray[0].join(', ')+(reposArray.length>1?' ...':'')
 								}));
+								for(var i=1;i<reposArray.length;i++)
+								{
+									that.say('... '+reposArray[i].join(', ')+(i+1<reposArray.length?' ...':''));
+								}
 							}
 							catch(e)
 							{
@@ -189,6 +193,7 @@ exports.commands=
 								that.reply(template(templates['user'], 
 								{
 									'user': userName,
+									'fullname': user['name']?('('+user['name']+')'):'',
 									'repos': user['public_repos'],
 									'followers': user['followers'],
 									'following': user['following'],
