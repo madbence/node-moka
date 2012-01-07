@@ -68,6 +68,7 @@ setInterval(function(){queue.tick()}, 2000);
 
 Hook.prototype._config=require('./config.js').config;
 Hook.prototype.commands=[];
+Hook.prototype.regexpListeners=[];
 
 Hook.prototype.init=function()
 {
@@ -109,6 +110,11 @@ Hook.prototype.addModule=function(m)
 	if(typeof m.onInit == 'function')
 		m.onInit.call(this);
 }
+Hook.prototype.addRegexpListener=function(regexp, clb)
+{
+	this.regexpListeners.push({'pattern':regexp, 'callback':clb});
+}
+
 Hook.prototype.log=function()
 {
 	for(var i=0;i<arguments.length;i++)
@@ -193,6 +199,7 @@ Hook.prototype.handleMessage=function(sender, channel, message)
 		this.handleCommand(message.split(' '));
 		//this._executeCmd(this.reply('szia'));
 	}
+	this.checkListeners(this.getMessage());
 }
 
 Hook.prototype.handleCommand=function(args)
@@ -341,11 +348,19 @@ Hook.prototype.getMessage=function(raw)
 	return raw?this._rawMessage:this._cleanMessage;
 }
 
-Hook.prototype.addMessageListener=function(listener)
+Hook.prototype.checkListeners=function(message)
 {
-	this._messageListeners.push(listener);
+	for(var i=0;i<this.regexpListeners.length;i++)
+	{
+		var match;
+		console.log(this.regexpListeners[i]['pattern'], message);
+		if(match=message.match(this.regexpListeners[i]['pattern']))
+		{
+			this.regexpListeners[i]['callback'].call(this, match);
+			return;
+		}
+	}
 }
-
 
 process.on('message', function(msg)
 {
