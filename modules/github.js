@@ -4,12 +4,12 @@ var util=require('../util.js');
 
 var githubAPI=
 {
-	getUser: function(name, clb)
+	_apiCall: function(path, clb)
 	{
 		https.get(
 		{
 			'host': 'api.github.com',
-			'path': '/users/'+name
+			'path': path
 		}, function(res)
 		{
 			this.remaining=res.headers['x-ratelimit-remaining'];
@@ -23,86 +23,26 @@ var githubAPI=
 				clb(JSON.parse(responseData));
 			});
 		});
+	},
+	getUser: function(name, clb)
+	{
+		this._apiCall('/users/'+name, clb);
 	},
 	getRepos: function(name, clb)
 	{
-		https.get(
-		{
-			'host': 'api.github.com',
-			'path': '/users/'+name+'/repos?per_page=100'
-		}, function(res)
-		{
-			this.remaining=res.headers['x-ratelimit-remaining'];
-			var responseData='';
-			res.on('data', function(data)
-			{
-				responseData+=data;
-			});
-			res.on('end', function()
-			{
-				clb(JSON.parse(responseData));
-			});
-		});
+		this._apiCall('/users/'+name+'/repos?per_page=100', clb);
 	},
 	getFollowers: function(name, clb)
 	{
-		https.get(
-		{
-			'host': 'api.github.com',
-			'path': '/users/'+name+'/followers'
-		}, function(res)
-		{
-			this.remaining=res.headers['x-ratelimit-remaining'];
-			var responseData='';
-			res.on('data', function(data)
-			{
-				responseData+=data;
-			});
-			res.on('end', function()
-			{
-				clb(JSON.parse(responseData));
-			});
-		});
+		this._apiCall('/users/'+name+'/followers', clb);
 	},
 	getFollowings: function(name, clb)
 	{
-		https.get(
-		{
-			'host': 'api.github.com',
-			'path': '/users/'+name+'/following'
-		}, function(res)
-		{
-			this.remaining=res.headers['x-ratelimit-remaining'];
-			var responseData='';
-			res.on('data', function(data)
-			{
-				responseData+=data;
-			});
-			res.on('end', function()
-			{
-				clb(JSON.parse(responseData));
-			});
-		});
+		this._apiCall('/users/'+name+'/following', clb);
 	},
 	getRepo: function(user, repo, clb)
 	{
-		https.get(
-		{
-			'host': 'api.github.com',
-			'path': '/repos/'+user+'/'+repo
-		}, function(res)
-		{
-			this.remaining=res.headers['x-ratelimit-remaining'];
-			var responseData='';
-			res.on('data', function(data)
-			{
-				responseData+=data;
-			});
-			res.on('end', function()
-			{
-				clb(JSON.parse(responseData));
-			});
-		});
+		this._apiCall('/repos/'+user+'/'+repo, clb);
 	}
 }
 
