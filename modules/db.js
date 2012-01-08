@@ -1,5 +1,5 @@
 var util=require('../util.js');
-var client=require('./db.js').client;
+var client=require('./mongo.js').client;
 var databaseAPI=
 {
 	create: function(owner, name, content, clb)
