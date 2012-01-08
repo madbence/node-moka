@@ -73,6 +73,7 @@ setInterval(function(){queue.tick()}, 2000);
 Hook.prototype._config=require('./config.js').config;
 Hook.prototype.commands=[];
 Hook.prototype.regexpListeners=[];
+Hook.prototype.messageListeners=[];
 
 Hook.prototype.init=function()
 {
@@ -109,6 +110,10 @@ Hook.prototype.addModule=function(m)
 			{
 				this.addRegexpListener(m['listeners'][i]['regexp'], m['listeners'][i]['func']);
 			}
+			else(m['listeners'][i]['catch'] == 'messages')
+			{
+				this.addMessageListener(m['listeners'][i]['func']);
+			}
 		}
 	}
 	if(typeof m.onInit == 'function')
@@ -117,6 +122,10 @@ Hook.prototype.addModule=function(m)
 Hook.prototype.addRegexpListener=function(regexp, clb)
 {
 	this.regexpListeners.push({'pattern':regexp, 'callback':clb});
+}
+Hook.prototype.addMessageListener=function(clb)
+{
+	this.messageListeners.push(clb);
 }
 
 Hook.prototype.log=function()
@@ -362,13 +371,17 @@ Hook.prototype.getMessage=function(raw)
 
 Hook.prototype.checkListeners=function(message)
 {
+	for(var i=0;i<this.messageListeners.length;i++)
+	{
+		this.messageListeners[i]['callback'].call(this);
+	}
 	for(var i=0;i<this.regexpListeners.length;i++)
 	{
 		var match;
 		if(match=message.match(this.regexpListeners[i]['pattern']))
 		{
-			this.regexpListeners[i]['callback'].call(this, match);
-			return;
+			if(this.regexpListeners[i]['callback'].call(this, match));
+				return;
 		}
 	}
 }

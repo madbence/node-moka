@@ -19,7 +19,7 @@ exports.listeners=
 [
 	{
 		'catch': 'messages',
-		'func': function()
+		'callback': function()
 		{
 			if(this.isChannel())
 			{
