@@ -1,99 +1,10 @@
-var mongo=require('../../npm/node_modules/mongodb');
-var db=new mongo.Db('moka', new mongo.Server('127.0.0.1', 27017, {}));
 var util=require('../util.js');
-var client=
+var client=require('./db.js');
+var databaseAPI=
 {
-	init: function()
-	{
-		db.open(this.open);
-	},
-	open: function(err, pconn)
-	{
-		if(!err)
-		console.log('Connected to MongoDB!');
-		else
-		console.log('Connection error: ', err);
-	},
-	find: function(coll, terms, clb, errclb)
-	{
-		clb=typeof clb == 'function'?clb:function(){};
-		errclb=typeof errclb == 'function'?errclb:function(){};
-		db.collection(coll, function(err, coll)
-		{
-			if(err)
-			{
-				errclb(err);
-				return;
-			}
-			coll.find(terms, function(err, cur)
-			{
-				if(err)
-				{
-					errclb(err);
-					return;
-				}
-				cur.toArray(function(err, arr)
-				{
-					if(err)
-					{
-						errclb(err);
-						return;
-					}
-					clb(arr);
-				});
-			});
-		});
-	},
-	insert: function(coll, obj, clb, errclb)
-	{
-		clb=typeof clb == 'function'?clb:function(){};
-		errclb=typeof errclb == 'function'?errclb:function(){};
-		db.collection(coll, function(err, coll)
-		{
-			if(err)
-			{
-				errclb(err);
-				return;
-			}
-			coll.insert(obj, {safe:true}, function(err, docs)
-			{
-				if(err)
-				{
-					errclb(err);
-					return;
-				}
-				clb(docs);
-			});
-		});
-	},
-	update: function(coll, crit, newObj, clb, errclb)
-	{
-		clb=typeof clb == 'function'?clb:function(){};
-		errclb=typeof errclb == 'function'?errclb:function(){};
-		db.collection(coll, function(err, coll)
-		{
-			if(err)
-			{
-				errclb(err);
-				return;
-			}
-			coll.update(crit, newObj, {safe:true}, function(err, succ)
-			{
-				if(err)
-				{
-					errclb(err);
-					return;
-				}
-				else
-				{
-					clb(succ);
-				}
-			});
-		});
-	},
 	create: function(owner, name, content, clb)
 	{
-		this.insert(
+		client.insert(
 			'db',
 			{
 				'owner': owner,
@@ -108,7 +19,7 @@ var client=
 	},
 	get: function(name, clb)
 	{
-		this.find(
+		client.find(
 			'db',
 			{'name':this.nameRegExp(name)},
 			function(s)
@@ -129,7 +40,7 @@ var client=
 	},
 	append: function(modifier, name, content, clb)
 	{
-		this.update(
+		client.update(
 			'db',
 			{'name':this.nameRegExp(name)},
 			{'$set':{'modified':new Date().getTime(), 'modifier': modifier},
@@ -145,7 +56,7 @@ var client=
 	},
 	search: function(content, clb)
 	{
-		this.find(
+		client.find(
 			'db',
 			{'content': new RegExp(content)},
 			function(s)
@@ -194,7 +105,7 @@ exports.commands=
 					break;
 				case 'c':
 				case 'create':
-					client.create(this.getUser(), name, params.slice(3).join(' '), function(err,succ)
+					databaseAPI.create(this.getUser(), name, params.slice(3).join(' '), function(err,succ)
 					{
 						if(err)
 						{
@@ -213,7 +124,7 @@ exports.commands=
 					break;
 				case 'g':
 				case 'get':
-					client.get(name, function(err,succ)
+					databaseAPI.get(name, function(err,succ)
 					{
 						if(err)
 						{
@@ -237,7 +148,7 @@ exports.commands=
 					break;
 				case 'i':
 				case 'info':
-					client.get(name, function(err, succ)
+					databaseAPI.get(name, function(err, succ)
 					{
 						if(err)
 						{
@@ -259,7 +170,7 @@ exports.commands=
 				case 'a':
 				case 'app':
 				case 'append':
-					client.append(this.getUser(), name, params.slice(3).join(' '), function(err,succ)
+					databaseAPI.append(this.getUser(), name, params.slice(3).join(' '), function(err,succ)
 					{
 						if(err)
 						{
@@ -285,7 +196,7 @@ exports.commands=
 					break;
 				case 's':
 				case 'search':
-					client.search(params.slice(2).join(' '), function(err, succ)
+					databaseAPI.search(params.slice(2).join(' '), function(err, succ)
 					{
 						if(err)
 						{
@@ -322,9 +233,3 @@ exports.commands=
 		}
 	}
 ];
-
-exports.onInit=function()
-{
-	console.log('Connecting to MongoDB');
-	client.init();
-}
