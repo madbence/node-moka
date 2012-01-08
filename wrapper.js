@@ -7,6 +7,14 @@ var restart=function(err, fn)
 	{
 		console.log('Restarting...');
 		delete require.cache[__dirname+'\\hook.js'];
+		if(require.cache)
+		{
+			for(var i in require.cache)
+			{
+				console.log(i);
+				delete require.cache[i];
+			}
+		}
 		try
 		{
 			instance=require(__dirname+'/hook.js');

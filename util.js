@@ -72,3 +72,13 @@ exports.escape=function(str)
 {
 	return str.replace(/[^a-z0-9_-]/gi, '-');
 }
+
+exports.parseDate=function(str)
+{
+	//ISO8601
+	var match=str.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})Z$/);
+	if(match)
+	{
+		return new Date(match[1], match[2]-1, match[3], match[4], match[5], match[6]);
+	}
+}

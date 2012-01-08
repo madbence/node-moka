@@ -82,7 +82,7 @@ Hook.prototype.init=function()
 	{
 		if(modules[i].match(/\.js$/))
 		{
-			delete require.cache[__dirname+'\\modules\\'+modules[i]];
+			//delete require.cache[__dirname+'\\modules\\'+modules[i]];
 			this.addModule(require(__dirname+'\\modules\\'+modules[i]));
 		}
 		else
@@ -365,7 +365,6 @@ Hook.prototype.checkListeners=function(message)
 	for(var i=0;i<this.regexpListeners.length;i++)
 	{
 		var match;
-		console.log(this.regexpListeners[i]['pattern'], message);
 		if(match=message.match(this.regexpListeners[i]['pattern']))
 		{
 			this.regexpListeners[i]['callback'].call(this, match);

@@ -12,6 +12,7 @@ var githubAPI=
 			'path': '/users/'+name
 		}, function(res)
 		{
+			this.remaining=res.headers['x-ratelimit-remaining'];
 			var responseData='';
 			res.on('data', function(data)
 			{
@@ -31,6 +32,7 @@ var githubAPI=
 			'path': '/users/'+name+'/repos?per_page=100'
 		}, function(res)
 		{
+			this.remaining=res.headers['x-ratelimit-remaining'];
 			var responseData='';
 			res.on('data', function(data)
 			{
@@ -50,6 +52,7 @@ var githubAPI=
 			'path': '/users/'+name+'/followers'
 		}, function(res)
 		{
+			this.remaining=res.headers['x-ratelimit-remaining'];
 			var responseData='';
 			res.on('data', function(data)
 			{
@@ -69,6 +72,27 @@ var githubAPI=
 			'path': '/users/'+name+'/following'
 		}, function(res)
 		{
+			this.remaining=res.headers['x-ratelimit-remaining'];
+			var responseData='';
+			res.on('data', function(data)
+			{
+				responseData+=data;
+			});
+			res.on('end', function()
+			{
+				clb(JSON.parse(responseData));
+			});
+		});
+	},
+	getRepo: function(user, repo, clb)
+	{
+		https.get(
+		{
+			'host': 'api.github.com',
+			'path': '/repos/'+user+'/'+repo
+		}, function(res)
+		{
+			this.remaining=res.headers['x-ratelimit-remaining'];
 			var responseData='';
 			res.on('data', function(data)
 			{
@@ -86,7 +110,8 @@ var templates=
 {
 	'user': ':user:fullname: :repos public repo, :followers koveto, :following kovetett, :gists gist.',
 	'repos': ':user public repoi: :repos',
-	'repos_': ':name(:lang,:ownership)'
+	'repos_': ':name(:lang,:ownership)',
+	'repo': ':name(:lang, owner: :owner, letrehozva: :created, frissitve: :lastupdate, :forks fork, :watchers watcher): :description'
 }
 
 exports.commands=
@@ -255,7 +280,38 @@ exports.commands=
 exports.listeners=
 [
 	{
-		'regexp': /^http(|s):\/\/(|www\.)github\.com\/([^\/]+)$/,
+		'regexp': /http(|s):\/\/(|www\.)github\.com\/([^\/]+)\/([a-zA-z0-9-_]+)/,
+		'func': function(match)
+		{
+			var userName=util.escape(match[3]);
+			var repoName=util.escape(match[4]);
+			var that=this;
+			githubAPI.getRepo(userName, repoName, function(repo)
+			{
+				if(repo['message'] == 'Not Found')
+				{
+					//that.reply('Nincs \''+userName+'\' juzer :c');
+					console.log(userName, repoName);
+				}
+				else
+				{
+					that.reply(template(templates['repo'], 
+					{
+						'name': repo['name'],
+						'lang': repo['language'],
+						'owner': repo['owner']['login'],
+						'created': util.dateFormatter(util.parseDate(repo['created_at']), '%Y.%m.%d %H:%i:%s'),
+						'lastupdate': util.dateFormatter(util.parseDate(repo['updated_at']), '%Y.%m.%d %H:%i:%s'),
+						'forks': repo['forks'],
+						'watchers': repo['watchers'],
+						'description': repo['description'].length>50?(repo['description'].substr(0, 50)+'...'):repo['description']
+					}));
+				}
+			});
+		}
+	},
+	{
+		'regexp': /http(|s):\/\/(|www\.)github\.com\/([a-zA-z0-9-_]+)/,
 		'func': function(match)
 		{
 			var userName=util.escape(match[3]);
