@@ -1,101 +1,235 @@
-var mongo=require('../../npm/node_modules/mongodb');
-var db=new mongo.Db('moka', new mongo.Server('127.0.0.1', 27017, {}));
-var client=
+var util=require('../util.js');
+var client=require('./db.js').client;
+var databaseAPI=
 {
-	init: function()
+	create: function(owner, name, content, clb)
 	{
-		db.open(this.open);
+		client.insert(
+			'db',
+			{
+				'owner': owner,
+				'created': new Date().getTime(),
+				'modified': new Date().getTime(),
+				'modifier': owner,
+				'name': name,
+				'content': [content]
+			},
+			function(s){clb(null,s);},
+			function(s){clb(s,null);});
 	},
-	open: function(err, pconn)
+	get: function(name, clb)
 	{
-		if(!err)
-		console.log('Connected to MongoDB!');
-		else
-		console.log('Connection error: ', err);
-	},
-	find: function(coll, terms, clb, errclb)
-	{
-		clb=typeof clb == 'function'?clb:function(){};
-		errclb=typeof errclb == 'function'?errclb:function(){};
-		db.collection(coll, function(err, coll)
-		{
-			if(err)
+		client.find(
+			'db',
+			{'name':this.nameRegExp(name)},
+			function(s)
 			{
-				errclb(err);
-				return;
-			}
-			coll.find(terms, function(err, cur)
-			{
-				if(err)
+				if(!s.length)
 				{
-					errclb(err);
-					return;
-				}
-				cur.toArray(function(err, arr)
-				{
-					if(err)
-					{
-						errclb(err);
-						return;
-					}
-					clb(arr);
-				});
-			});
-		});
-	},
-	insert: function(coll, obj, clb, errclb)
-	{
-		clb=typeof clb == 'function'?clb:function(){};
-		errclb=typeof errclb == 'function'?errclb:function(){};
-		db.collection(coll, function(err, coll)
-		{
-			if(err)
-			{
-				errclb(err);
-				return;
-			}
-			coll.insert(obj, {safe:true}, function(err, docs)
-			{
-				if(err)
-				{
-					errclb(err);
-					return;
-				}
-				clb(docs);
-			});
-		});
-	},
-	update: function(coll, crit, newObj, clb, errclb)
-	{
-		clb=typeof clb == 'function'?clb:function(){};
-		errclb=typeof errclb == 'function'?errclb:function(){};
-		db.collection(coll, function(err, coll)
-		{
-			if(err)
-			{
-				errclb(err);
-				return;
-			}
-			coll.update(crit, newObj, {safe:true}, function(err, succ)
-			{
-				if(err)
-				{
-					errclb(err);
-					return;
+					clb(1, 'Nincs ilyen bejegyzes');
 				}
 				else
 				{
-					clb(succ);
+					clb(null, s[0]);
 				}
+			},
+			function(s)
+			{
+				clb(s, null);
 			});
-		});
+	},
+	append: function(modifier, name, content, clb)
+	{
+		client.update(
+			'db',
+			{'name':this.nameRegExp(name)},
+			{'$set':{'modified':new Date().getTime(), 'modifier': modifier},
+			 '$push':{'content': content}},
+			function(s)
+			{
+				clb(null, s);
+			},
+			function(s)
+			{
+				clb(s,null);
+			});
+	},
+	search: function(content, clb)
+	{
+		client.find(
+			'db',
+			{'content': new RegExp(content)},
+			function(s)
+			{
+				clb(null, s);
+			},
+			function(s)
+			{
+				clb(s, null);
+			});
+	},
+	nameRegExp: function(name)
+	{
+		console.log(new RegExp('^'+name.replace(/([a-z0-9])/g, '$1[a-z0-9]*?-?')));
+		return new RegExp('^'+name.replace(/([a-z0-9])/g, '$1[a-z0-9]*?-?'));
 	}
+	
 }
 
-exports.client=client;
+/**
+owner
+created
+modified
+modifier
+name
+content
+*/
 
-exports.onInit=function()
-{
-	console.log('Connecting to MongoDB');
-	client.init();
-}
+exports.commands=
+[
+	{
+		'name': 'db',
+		'func': function(params)
+		{
+			var that=this;
+			var name=util.trimHyphens(util.toASCII(params[2]||''));
+			if(name == '' || name == '-')
+			{
+				return;
+			}
+			switch(params[1])
+			{
+				case 'h':
+				case 'help':
+					//that.reply(params[0]+' [create|c|get|g|help|h|info|i|append|a] name');
+					break;
+				case 'c':
+				case 'create':
+					databaseAPI.create(this.getUser(), name, params.slice(3).join(' '), function(err,succ)
+					{
+						if(err)
+						{
+							switch(err)
+							{
+								case 1:
+									that.reply(succ);
+									break;
+								default:
+									that.reply('Hiba tortent.');
+							}
+							return;
+						}
+						that.reply(name+' letrehozva.');
+					});
+					break;
+				case 'g':
+				case 'get':
+					databaseAPI.get(name, function(err,succ)
+					{
+						if(err)
+						{
+							switch(err)
+							{
+								case 1:
+									that.reply(succ);
+									break;
+								default:
+									that.reply('Hiba tortent.');
+							}
+							return;
+						}
+						var result=succ['content'].join(' || ');
+						if(result.length>400)
+						{
+							result=result.substr(0, 400)+'...'
+						}
+						that.reply(succ['name']+': '+result);
+					});
+					break;
+				case 'i':
+				case 'info':
+					databaseAPI.get(name, function(err, succ)
+					{
+						if(err)
+						{
+							switch(err)
+							{
+								case 1:
+									that.reply(succ);
+									break;
+								default:
+									that.reply('Hiba tortent.');
+							}
+							return;
+						}
+						var created=util.dateFormatter(new Date(succ['created']), '%Y. %F %j-%S, %D %H:%i:%s');
+						var modified=util.dateFormatter(new Date(succ['modified']), '%Y. %F %j-%S, %D %H:%i:%s');
+						that.reply(succ['name']+': letrehozta '+succ['owner']+' '+created+', utoljara modositotta '+succ['modifier']+' '+modified);
+					});
+					break;
+				case 'a':
+				case 'app':
+				case 'append':
+					databaseAPI.append(this.getUser(), name, params.slice(3).join(' '), function(err,succ)
+					{
+						if(err)
+						{
+							switch(err)
+							{
+								case 1:
+									that.reply(succ);
+									break;
+								default:
+									that.reply('Hiba tortent.');
+							}
+							return;
+						}
+						if(succ)
+						{
+							that.reply(name+' frissitve!');
+						}
+						else
+						{
+							that.reply('Hoppa, nincs ilyen bejegyzes');
+						}
+					});
+					break;
+				case 's':
+				case 'search':
+					databaseAPI.search(params.slice(2).join(' '), function(err, succ)
+					{
+						if(err)
+						{
+							that.reply('Hiba tortent!');
+						}
+						else
+						{
+							if(succ.length==0)
+							{
+								that.reply('Nincs talalat :-(');
+							}
+							else
+							{
+								var a=[];
+								for(var i=0;i<succ.length;i++)
+								{
+									a[i]=succ[i]['name'];
+								}
+								var result=a.join(', ');
+								if(result.length>400)
+								{
+									result=result.substr(0, 400)+'...';
+								}
+								that.reply(succ.length+' talalat: '+result);
+							}
+						}
+					});
+					break;
+					default:
+						params[1]='get';
+						params[2]='help';
+						arguments.callee.call(this, params);
+			}
+		}
+	}
+];
