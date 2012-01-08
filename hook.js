@@ -110,7 +110,7 @@ Hook.prototype.addModule=function(m)
 			{
 				this.addRegexpListener(m['listeners'][i]['regexp'], m['listeners'][i]['func']);
 			}
-			else(m['listeners'][i]['catch'] == 'messages')
+			else if(m['listeners'][i]['catch'] == 'messages')
 			{
 				this.addMessageListener(m['listeners'][i]['func']);
 			}
@@ -168,7 +168,8 @@ Hook.prototype._handle=function(message)
 	}
 	catch(e)
 	{
-		this.log(e);
+		this.log(require('util').inspect(e, true, 3));
+		console.log(e.stack);
 	}
 }
 Hook.prototype.handleMessage=function(sender, channel, message)
@@ -373,7 +374,7 @@ Hook.prototype.checkListeners=function(message)
 {
 	for(var i=0;i<this.messageListeners.length;i++)
 	{
-		this.messageListeners[i]['callback'].call(this);
+		this.messageListeners[i].call(this);
 	}
 	for(var i=0;i<this.regexpListeners.length;i++)
 	{

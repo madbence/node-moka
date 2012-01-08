@@ -1,4 +1,4 @@
-var client=require('./db.js');
+var client=require('./mongo.js').client;
 
 var loggerAPI=
 {
@@ -19,7 +19,7 @@ exports.listeners=
 [
 	{
 		'catch': 'messages',
-		'callback': function()
+		'func': function()
 		{
 			if(this.isChannel())
 			{
